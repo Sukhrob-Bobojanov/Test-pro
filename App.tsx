@@ -8,6 +8,10 @@ import StudentLogin from './components/StudentLogin';
 import ReportViewer from './components/ReportViewer';
 import AdminLogin from './components/AdminLogin';
 
+// Haqiqiy bazaga ulanish uchun API URL (masalan Firebase yoki shaxsiy server)
+// Agar bo'sh bo'lsa, lokal xotiradan foydalanadi
+const GLOBAL_API_URL = ''; 
+
 const shuffle = <T,>(array: T[]): T[] => {
   const newArr = [...array];
   for (let i = newArr.length - 1; i > 0; i--) {
@@ -19,10 +23,13 @@ const shuffle = <T,>(array: T[]): T[] => {
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>('landing');
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [subjects, setSubjects] = useState<Subject[]>(() => {
     const saved = localStorage.getItem('edu_subjects');
     return saved ? JSON.parse(saved) : [];
   });
+  
   const [records, setRecords] = useState<StudentRecord[]>(() => {
     const saved = localStorage.getItem('edu_records');
     return saved ? JSON.parse(saved) : [];
@@ -33,31 +40,52 @@ const App: React.FC = () => {
   const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
   const [finalResult, setFinalResult] = useState<QuizResult | null>(null);
 
-  // Persistence
-  useEffect(() => {
-    localStorage.setItem('edu_subjects', JSON.stringify(subjects));
-  }, [subjects]);
-
-  useEffect(() => {
-    localStorage.setItem('edu_records', JSON.stringify(records));
-  }, [records]);
-
-  // Global Sync: Serverdagi config.json ni yuklash
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const resp = await fetch('/config.json');
-        if (resp.ok) {
-          const externalData = await resp.json();
-          if (externalData.subjects) {
-            setSubjects(externalData.subjects);
-          }
-        }
-      } catch (e) {
-        console.log("Global konfiguratsiya topilmadi, lokal xotiradan foydalanilmoqda.");
+  // Global Sync: Ma'lumotlarni serverdan yuklash
+  const fetchGlobalData = async () => {
+    if (!GLOBAL_API_URL) return;
+    setIsSyncing(true);
+    try {
+      const resp = await fetch(`${GLOBAL_API_URL}/get-data`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.subjects) setSubjects(data.subjects);
+        if (data.records) setRecords(data.records);
       }
-    };
-    fetchConfig();
+    } catch (e) {
+      console.error("Global yuklashda xatolik:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Global Sync: Ma'lumotlarni serverga saqlash (Avtomatik)
+  const syncToGlobal = async (newSubjects: Subject[], newRecords?: StudentRecord[]) => {
+    setSubjects(newSubjects);
+    localStorage.setItem('edu_subjects', JSON.stringify(newSubjects));
+    
+    if (newRecords) {
+      setRecords(newRecords);
+      localStorage.setItem('edu_records', JSON.stringify(newRecords));
+    }
+
+    if (!GLOBAL_API_URL) return;
+    
+    setIsSyncing(true);
+    try {
+      await fetch(`${GLOBAL_API_URL}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects: newSubjects, records: newRecords || records })
+      });
+    } catch (e) {
+      console.error("Global saqlashda xatolik:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGlobalData();
   }, []);
 
   const handleStartQuiz = (subject: Subject, info: {name: string, group: string}) => {
@@ -90,8 +118,8 @@ const App: React.FC = () => {
     };
 
     localStorage.setItem(`completed_${activeSubject.id}`, 'true');
-
-    setRecords(prev => [...prev, newRecord]);
+    syncToGlobal(subjects, [...records, newRecord]);
+    
     setFinalResult(result);
     setStep('result');
   };
@@ -109,7 +137,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3 cursor-pointer" onClick={resetToHome}>
           <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 01-.586 1.414l-2.414 2.414c-.126.126-.31.146-.453.059A1.107 1.107 0 017.5 13V5L6.5 4H8z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.168.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </div>
           <div>
@@ -117,11 +145,14 @@ const App: React.FC = () => {
             <p className="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">Digital Exam Hub</p>
           </div>
         </div>
-        {step !== 'landing' && (
-          <button onClick={resetToHome} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-xs font-bold transition uppercase tracking-widest border border-white/10">
-            Chiqish
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {isSyncing && <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>}
+          {step !== 'landing' && (
+            <button onClick={resetToHome} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-xs font-bold transition uppercase tracking-widest border border-white/10">
+              Chiqish
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto bg-slate-50/50 relative">
@@ -129,33 +160,33 @@ const App: React.FC = () => {
           <div className="p-8 flex flex-col items-center justify-center min-h-[70vh] space-y-12">
             <div className="text-center space-y-4">
               <div className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black tracking-widest uppercase">
-                Student Portal
+                2026 Examination Portal
               </div>
               <h2 className="text-5xl font-black text-slate-900 tracking-tight">EduQuiz Pro</h2>
-              <p className="text-slate-500 text-lg font-medium">Imtihon topshirish uchun quyidagi tugmani bosing</p>
+              <p className="text-slate-500 text-lg font-medium">Barcha qurilmalar uchun yagona tizim</p>
             </div>
             
             <div className="w-full max-w-sm">
               <button 
                 onClick={() => setStep('student-login')}
-                className="group w-full relative bg-white p-12 rounded-[3rem] border-2 border-indigo-100 shadow-xl shadow-indigo-500/5 hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 text-center"
+                className="group w-full relative bg-white p-12 rounded-[3.5rem] border-2 border-indigo-100 shadow-2xl shadow-indigo-500/10 hover:border-indigo-500 hover:scale-[1.02] transition-all duration-500 text-center"
               >
-                <div className="w-24 h-24 bg-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-indigo-200 group-hover:scale-110 transition-transform">
+                <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-indigo-200 group-hover:rotate-12 transition-transform">
                   <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-3xl font-black text-slate-800">TESTNI BOSHLASH</h3>
-                <p className="text-indigo-500 text-xs mt-3 font-black uppercase tracking-widest">Talabalar uchun kirish</p>
+                <h3 className="text-3xl font-black text-slate-800 tracking-tighter">TESTNI BOSHLASH</h3>
+                <p className="text-indigo-500 text-[10px] mt-4 font-black uppercase tracking-[0.2em]">Barcha fanlar bir joyda</p>
               </button>
             </div>
 
-            {/* Kichraytirilgan Admin tugmasi */}
+            {/* Kichraytirilgan Admin tugmasi (Gear icon) */}
             <button 
               onClick={() => setStep('admin-login')}
-              className="absolute bottom-6 right-6 p-3 bg-slate-200 text-slate-500 rounded-2xl hover:bg-slate-800 hover:text-white transition-all shadow-sm"
-              title="Admin boshqaruvi"
+              className="absolute bottom-6 right-6 p-4 bg-slate-200 text-slate-400 rounded-full hover:bg-slate-800 hover:text-white transition-all shadow-lg active:scale-90"
+              title="Admin Panel"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -165,25 +196,20 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {step === 'admin-login' && (
-          <AdminLogin onLogin={() => setStep('admin')} />
-        )}
-
+        {step === 'admin-login' && <AdminLogin onLogin={() => setStep('admin')} />}
+        
         {step === 'admin' && (
           <AdminDashboard 
             subjects={subjects} 
-            setSubjects={setSubjects} 
+            // Fix: setSubjects prop now directly calls syncToGlobal as it is passed an array of subjects, not a dispatcher function.
+            setSubjects={(newSubs) => {
+              syncToGlobal(newSubs);
+            }} 
             onViewReports={() => setStep('reports')} 
           />
         )}
 
-        {step === 'student-login' && (
-          <StudentLogin 
-            subjects={subjects} 
-            records={records}
-            onStart={handleStartQuiz} 
-          />
-        )}
+        {step === 'student-login' && <StudentLogin subjects={subjects} records={records} onStart={handleStartQuiz} />}
 
         {step === 'quiz' && activeSubject && (
           <div className="p-4">
@@ -197,11 +223,7 @@ const App: React.FC = () => {
 
         {step === 'result' && finalResult && (
           <div className="p-4">
-            <ResultView 
-              result={finalResult} 
-              onRestart={() => setStep('landing')} 
-              onHome={resetToHome} 
-            />
+            <ResultView result={finalResult} onRestart={() => setStep('landing')} onHome={resetToHome} />
           </div>
         )}
 
