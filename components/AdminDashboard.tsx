@@ -20,7 +20,6 @@ const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports 
   const [endDateTime, setEndDateTime] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
 
-  // Formani tozalash
   const resetForm = () => {
     setName('');
     setQuestionsPerVariant(50);
@@ -36,7 +35,7 @@ const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports 
     setName(s.name);
     setQuestionsPerVariant(s.questionsPerVariant || 50);
     setDuration(s.durationMinutes);
-    setStartDateTime(s.startTime.slice(0, 16)); // YYYY-MM-DDTHH:mm
+    setStartDateTime(s.startTime.slice(0, 16));
     setEndDateTime(s.endTime.slice(0, 16));
     setQuestions(s.questions);
     setEditingId(s.id);
@@ -69,21 +68,47 @@ const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports 
   };
 
   const deleteSubject = (id: string) => {
-    if(confirm('Ushbu fanni va barcha bog\'liq testlarni o\'chirmoqchimisiz?')) {
+    if(confirm('Ushbu fanni o\'chirmoqchimisiz?')) {
       setSubjects(prev => prev.filter(s => s.id !== id));
     }
+  };
+
+  const exportAllData = () => {
+    const data = {
+      subjects,
+      version: "4.2",
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `EduQuiz_Testlar_${new Date().toLocaleDateString()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
         <h2 className="text-2xl font-black text-slate-800 tracking-tight">Dashboard</h2>
-        <button 
-          onClick={onViewReports}
-          className="bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition uppercase tracking-widest"
-        >
-          Hisobotlar
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={exportAllData}
+            className="bg-green-600 text-white px-4 py-2.5 rounded-2xl text-[10px] font-black shadow-lg hover:bg-green-700 transition uppercase tracking-widest flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M16 9l-4-4m0 0L8 9m4-4v12" />
+            </svg>
+            Eksport
+          </button>
+          <button 
+            onClick={onViewReports}
+            className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl text-[10px] font-black shadow-lg hover:bg-indigo-700 transition uppercase tracking-widest"
+          >
+            Hisobotlar
+          </button>
+        </div>
       </div>
 
       {!showForm ? (
@@ -103,6 +128,7 @@ const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports 
             {subjects.length === 0 ? (
               <div className="bg-white border-2 border-dashed border-slate-100 rounded-[2.5rem] py-16 text-center">
                 <p className="text-slate-300 font-bold italic">Hozircha hech qanday fan mavjud emas</p>
+                <p className="text-[10px] text-slate-400 mt-2">Bosh sahifadan test yuklang yoki yangi qo'shing</p>
               </div>
             ) : (
               subjects.map(s => (
@@ -111,8 +137,7 @@ const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports 
                     <h4 className="font-black text-xl text-slate-800 leading-tight">{s.name}</h4>
                     <div className="flex flex-wrap gap-2">
                       <span className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-slate-100">Savollar: {s.questions.length}</span>
-                      <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-indigo-100">Variant hajmi: {s.questionsPerVariant}</span>
-                      <span className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-slate-100">{s.durationMinutes} min</span>
+                      <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-indigo-100">Variant: {s.questionsPerVariant}</span>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
@@ -165,7 +190,6 @@ const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports 
                     onChange={e => setQuestionsPerVariant(parseInt(e.target.value))} 
                     className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 font-bold outline-none" 
                   />
-                  <p className="text-[9px] text-slate-400 font-medium px-1">Tasodifiy tanlanadigan savollar soni</p>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vaqt (minut)</label>

@@ -26,34 +26,41 @@ const StudentLogin: React.FC<Props> = ({ subjects, records, onStart }) => {
     const subject = subjects.find(s => s.id === selectedSubjectId);
     if (!subject) return;
 
-    // Check Time
+    // Qurilma darajasidagi cheklovni tekshirish (Local Flag)
+    const isAlreadyDoneOnDevice = localStorage.getItem(`completed_${selectedSubjectId}`);
+    if (isAlreadyDoneOnDevice) {
+      setError('Siz ushbu qurilmada testni topshirib bo\'lgansiz. Qaytadan topshirish taqiqlanadi.');
+      return;
+    }
+
+    // Time Check
     const now = new Date();
     const start = new Date(subject.startTime);
     const end = new Date(subject.endTime);
 
     if (now < start) {
-      setError(`Test hali boshlanmagan. Boshlanish vaqti: ${start.toLocaleString()}`);
+      setError(`Test hali boshlanmagan. Boshlanish: ${start.toLocaleString()}`);
       return;
     }
 
     if (now > end) {
-      setError(`Test muddati tugagan. Tugash vaqti: ${end.toLocaleString()}`);
+      setError(`Test muddati tugagan. Tugash: ${end.toLocaleString()}`);
       return;
     }
 
-    // Check Attempts (based on Name + Group + Subject)
+    // Records Check (Database simulation)
     const alreadyTaken = records.some(r => 
-      r.fullName.toLowerCase() === name.toLowerCase() && 
-      r.groupName.toLowerCase() === group.toLowerCase() && 
+      r.fullName.toLowerCase() === name.toLowerCase().trim() && 
+      r.groupName.toLowerCase() === group.toLowerCase().trim() && 
       r.subjectId === selectedSubjectId
     );
 
     if (alreadyTaken) {
-      setError('Siz ushbu testni topshirib bo\'lgansiz. Qaytadan topshirish imkoni yo\'q.');
+      setError('Siz ushbu testni topshirib bo\'lgansiz (Ma\'lumotlar bazasida qayd etilgan).');
       return;
     }
 
-    onStart(subject, { name, group });
+    onStart(subject, { name: name.trim(), group: group.trim() });
   };
 
   return (
@@ -86,7 +93,7 @@ const StudentLogin: React.FC<Props> = ({ subjects, records, onStart }) => {
               placeholder="Masalan: Toshmatov Ali"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full p-4 rounded-2xl border-2 border-slate-100 bg-white focus:border-indigo-500 transition outline-none"
+              className="w-full p-4 rounded-2xl border-2 border-slate-100 bg-white focus:border-indigo-500 transition outline-none font-bold"
             />
           </div>
 
@@ -97,13 +104,13 @@ const StudentLogin: React.FC<Props> = ({ subjects, records, onStart }) => {
               placeholder="Masalan: 301-guruh"
               value={group}
               onChange={e => setGroup(e.target.value)}
-              className="w-full p-4 rounded-2xl border-2 border-slate-100 bg-white focus:border-indigo-500 transition outline-none"
+              className="w-full p-4 rounded-2xl border-2 border-slate-100 bg-white focus:border-indigo-500 transition outline-none font-bold"
             />
           </div>
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-medium flex gap-3">
+          <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-sm font-bold flex gap-3 animate-pulse">
              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
              </svg>
@@ -118,9 +125,12 @@ const StudentLogin: React.FC<Props> = ({ subjects, records, onStart }) => {
           Testni Boshlash
         </button>
 
-        <p className="text-center text-[10px] text-slate-400 uppercase tracking-widest leading-relaxed">
-          Diqqat! Testni faqat 1 marta topshirish mumkin. <br/>Vaqt tugasa, natijalar avtomatik saqlanadi.
-        </p>
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+           <p className="text-center text-[10px] text-slate-400 uppercase tracking-widest leading-relaxed font-bold">
+            <span className="text-indigo-600">DIQQAT:</span> Testni faqat 1 marta topshirish mumkin. <br/>
+            Ma'lumotlar serverda va brauzerda qayd etiladi.
+          </p>
+        </div>
       </form>
     </div>
   );

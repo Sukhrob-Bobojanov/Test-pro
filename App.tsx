@@ -42,8 +42,25 @@ const App: React.FC = () => {
     localStorage.setItem('edu_records', JSON.stringify(records));
   }, [records]);
 
+  // Avtomatik ravishda tashqi config.json ni tekshirish (Global sync uchun)
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const resp = await fetch('/config.json');
+        if (resp.ok) {
+          const externalData = await resp.json();
+          if (externalData.subjects) {
+            setSubjects(externalData.subjects);
+          }
+        }
+      } catch (e) {
+        console.log("Tashqi konfiguratsiya topilmadi");
+      }
+    };
+    fetchConfig();
+  }, []);
+
   const handleStartQuiz = (subject: Subject, info: {name: string, group: string}) => {
-    // Pick dynamic number of random questions based on subject config
     const shuffled = shuffle<Question>(subject.questions);
     const limit = subject.questionsPerVariant || 50;
     const selected = shuffled.slice(0, Math.min(limit, subject.questions.length)).map(q => ({
@@ -72,6 +89,9 @@ const App: React.FC = () => {
       completedAt: new Date().toISOString()
     };
 
+    // Qurilmada bir marta topshirishni bloklash uchun flag qo'shish
+    localStorage.setItem(`completed_${activeSubject.id}`, 'true');
+
     setRecords(prev => [...prev, newRecord]);
     setFinalResult(result);
     setStep('result');
@@ -82,6 +102,24 @@ const App: React.FC = () => {
     setActiveSubject(null);
     setStudentInfo(null);
     setFinalResult(null);
+  };
+
+  const handleImportConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.subjects) {
+          setSubjects(json.subjects);
+          alert("Testlar muvaffaqiyatli yuklandi!");
+        }
+      } catch (err) {
+        alert("Fayl formati noto'g'ri");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -95,7 +133,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="font-black text-lg tracking-tighter leading-none">RANCH UNIVERSITY</h1>
-            <p className="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">CiTRON Laboratory 2026</p>
+            <p className="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">Digital Exam Hub 2026</p>
           </div>
         </div>
         {step !== 'landing' && (
@@ -110,10 +148,10 @@ const App: React.FC = () => {
           <div className="p-8 space-y-12 flex flex-col items-center justify-center min-h-[75vh]">
             <div className="text-center space-y-4">
               <div className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black tracking-widest uppercase mb-2">
-                Digital Examination Portal
+                Unified Examination Portal
               </div>
-              <h2 className="text-5xl font-black text-slate-900 tracking-tight">Online Nazorat</h2>
-              <p className="text-slate-500 text-lg font-medium max-w-md mx-auto">Yakuniy nazorat ishlarini topshirish va boshqarish tizimi</p>
+              <h2 className="text-5xl font-black text-slate-900 tracking-tight">EduQuiz Pro</h2>
+              <p className="text-slate-500 text-lg font-medium max-w-md mx-auto">Masofaviy nazorat va test tizimi</p>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-lg">
@@ -128,7 +166,7 @@ const App: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="text-2xl font-black text-slate-800">Talaba</h3>
-                <p className="text-slate-400 text-sm mt-2 font-medium">Test topshirish uchun</p>
+                <p className="text-slate-400 text-sm mt-2 font-medium">Test topshirish</p>
               </button>
 
               <button 
@@ -144,6 +182,19 @@ const App: React.FC = () => {
                 <h3 className="text-2xl font-black text-slate-800">Admin</h3>
                 <p className="text-slate-400 text-sm mt-2 font-medium">Boshqaruv paneli</p>
               </button>
+            </div>
+
+            <div className="w-full max-w-lg">
+               <label className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-slate-200 rounded-[2rem] cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <svg className="w-8 h-8 mb-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="mb-2 text-sm text-slate-500 font-bold uppercase tracking-widest">Test faylini yuklash</p>
+                      <p className="text-xs text-slate-400">Admin tomonidan berilgan .json faylni tanlang</p>
+                  </div>
+                  <input type="file" className="hidden" accept=".json" onChange={handleImportConfig} />
+               </label>
             </div>
           </div>
         )}
@@ -197,9 +248,9 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="bg-slate-900 p-6 text-center border-t border-indigo-500/20 shadow-[0_-10px_30px_rgba(0,0,0,0.1)]">
+      <footer className="bg-slate-900 p-6 text-center border-t border-indigo-500/20">
         <p className="text-[10px] text-slate-500 font-black tracking-[0.3em] uppercase mb-1">CiTRON Laboratory & Ranch University</p>
-        <p className="text-[9px] text-slate-600 font-medium">Digital Examination Framework v4.0.26 &bull; High Integrity Mode Enabled</p>
+        <p className="text-[9px] text-slate-600 font-medium">Digital Examination Framework v4.2.26 &bull; Secure Protocol</p>
       </footer>
     </div>
   );
