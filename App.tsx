@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppStep, Question, QuizResult, Subject, StudentRecord } from './types';
 import QuizContainer from './components/QuizContainer';
 import ResultView from './components/ResultView';
@@ -42,7 +42,7 @@ const App: React.FC = () => {
     localStorage.setItem('edu_records', JSON.stringify(records));
   }, [records]);
 
-  // Avtomatik ravishda tashqi config.json ni tekshirish (Global sync uchun)
+  // Global Sync: Serverdagi config.json ni yuklash
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -54,7 +54,7 @@ const App: React.FC = () => {
           }
         }
       } catch (e) {
-        console.log("Tashqi konfiguratsiya topilmadi");
+        console.log("Global konfiguratsiya topilmadi, lokal xotiradan foydalanilmoqda.");
       }
     };
     fetchConfig();
@@ -89,7 +89,6 @@ const App: React.FC = () => {
       completedAt: new Date().toISOString()
     };
 
-    // Qurilmada bir marta topshirishni bloklash uchun flag qo'shish
     localStorage.setItem(`completed_${activeSubject.id}`, 'true');
 
     setRecords(prev => [...prev, newRecord]);
@@ -104,24 +103,6 @@ const App: React.FC = () => {
     setFinalResult(null);
   };
 
-  const handleImportConfig = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        if (json.subjects) {
-          setSubjects(json.subjects);
-          alert("Testlar muvaffaqiyatli yuklandi!");
-        }
-      } catch (err) {
-        alert("Fayl formati noto'g'ri");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="min-h-screen max-w-2xl mx-auto bg-white shadow-2xl flex flex-col relative overflow-hidden border-x border-slate-200">
       <header className="bg-slate-900 p-5 text-white flex items-center justify-between shadow-xl border-b border-indigo-500/30">
@@ -132,8 +113,8 @@ const App: React.FC = () => {
             </svg>
           </div>
           <div>
-            <h1 className="font-black text-lg tracking-tighter leading-none">RANCH UNIVERSITY</h1>
-            <p className="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">Digital Exam Hub 2026</p>
+            <h1 className="font-black text-lg tracking-tighter leading-none uppercase">Ranch Uni</h1>
+            <p className="text-[10px] text-indigo-400 font-bold tracking-widest uppercase">Digital Exam Hub</p>
           </div>
         </div>
         {step !== 'landing' && (
@@ -143,59 +124,44 @@ const App: React.FC = () => {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto bg-slate-50/50">
+      <main className="flex-1 overflow-y-auto bg-slate-50/50 relative">
         {step === 'landing' && (
-          <div className="p-8 space-y-12 flex flex-col items-center justify-center min-h-[75vh]">
+          <div className="p-8 flex flex-col items-center justify-center min-h-[70vh] space-y-12">
             <div className="text-center space-y-4">
-              <div className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black tracking-widest uppercase mb-2">
-                Unified Examination Portal
+              <div className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black tracking-widest uppercase">
+                Student Portal
               </div>
               <h2 className="text-5xl font-black text-slate-900 tracking-tight">EduQuiz Pro</h2>
-              <p className="text-slate-500 text-lg font-medium max-w-md mx-auto">Masofaviy nazorat va test tizimi</p>
+              <p className="text-slate-500 text-lg font-medium">Imtihon topshirish uchun quyidagi tugmani bosing</p>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-lg">
+            <div className="w-full max-w-sm">
               <button 
                 onClick={() => setStep('student-login')}
-                className="group relative bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 text-center"
+                className="group w-full relative bg-white p-12 rounded-[3rem] border-2 border-indigo-100 shadow-xl shadow-indigo-500/5 hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-500 text-center"
               >
-                <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500 rotate-3 group-hover:rotate-0">
-                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-24 h-24 bg-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-indigo-200 group-hover:scale-110 transition-transform">
+                  <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-black text-slate-800">Talaba</h3>
-                <p className="text-slate-400 text-sm mt-2 font-medium">Test topshirish</p>
-              </button>
-
-              <button 
-                onClick={() => setStep('admin-login')}
-                className="group relative bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm hover:border-slate-800 hover:shadow-2xl hover:shadow-slate-500/10 transition-all duration-500 text-center"
-              >
-                <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-600 group-hover:bg-slate-900 group-hover:text-white transition-all duration-500 -rotate-3 group-hover:rotate-0">
-                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-black text-slate-800">Admin</h3>
-                <p className="text-slate-400 text-sm mt-2 font-medium">Boshqaruv paneli</p>
+                <h3 className="text-3xl font-black text-slate-800">TESTNI BOSHLASH</h3>
+                <p className="text-indigo-500 text-xs mt-3 font-black uppercase tracking-widest">Talabalar uchun kirish</p>
               </button>
             </div>
 
-            <div className="w-full max-w-lg">
-               <label className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed border-slate-200 rounded-[2rem] cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                      <svg className="w-8 h-8 mb-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="mb-2 text-sm text-slate-500 font-bold uppercase tracking-widest">Test faylini yuklash</p>
-                      <p className="text-xs text-slate-400">Admin tomonidan berilgan .json faylni tanlang</p>
-                  </div>
-                  <input type="file" className="hidden" accept=".json" onChange={handleImportConfig} />
-               </label>
-            </div>
+            {/* Kichraytirilgan Admin tugmasi */}
+            <button 
+              onClick={() => setStep('admin-login')}
+              className="absolute bottom-6 right-6 p-3 bg-slate-200 text-slate-500 rounded-2xl hover:bg-slate-800 hover:text-white transition-all shadow-sm"
+              title="Admin boshqaruvi"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -249,8 +215,8 @@ const App: React.FC = () => {
       </main>
 
       <footer className="bg-slate-900 p-6 text-center border-t border-indigo-500/20">
-        <p className="text-[10px] text-slate-500 font-black tracking-[0.3em] uppercase mb-1">CiTRON Laboratory & Ranch University</p>
-        <p className="text-[9px] text-slate-600 font-medium">Digital Examination Framework v4.2.26 &bull; Secure Protocol</p>
+        <p className="text-[10px] text-slate-500 font-black tracking-[0.3em] uppercase mb-1">CiTRON Lab & Ranch University</p>
+        <p className="text-[9px] text-slate-600 font-medium tracking-widest">© 2026 DIGITAL EXAM INFRASTRUCTURE</p>
       </footer>
     </div>
   );
