@@ -1,0 +1,236 @@
+
+import React, { useState, useEffect } from 'react';
+import { Subject, Question } from '../types';
+import FileImport from './FileImport';
+
+interface Props {
+  subjects: Subject[];
+  setSubjects: React.Dispatch<React.SetStateAction<Subject[]>>;
+  onViewReports: () => void;
+}
+
+const AdminDashboard: React.FC<Props> = ({ subjects, setSubjects, onViewReports }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const [name, setName] = useState('');
+  const [questionsPerVariant, setQuestionsPerVariant] = useState(50);
+  const [duration, setDuration] = useState(60);
+  const [startDateTime, setStartDateTime] = useState('');
+  const [endDateTime, setEndDateTime] = useState('');
+  const [questions, setQuestions] = useState<Question[]>([]);
+
+  // Formani tozalash
+  const resetForm = () => {
+    setName('');
+    setQuestionsPerVariant(50);
+    setDuration(60);
+    setStartDateTime('');
+    setEndDateTime('');
+    setQuestions([]);
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (s: Subject) => {
+    setName(s.name);
+    setQuestionsPerVariant(s.questionsPerVariant || 50);
+    setDuration(s.durationMinutes);
+    setStartDateTime(s.startTime.slice(0, 16)); // YYYY-MM-DDTHH:mm
+    setEndDateTime(s.endTime.slice(0, 16));
+    setQuestions(s.questions);
+    setEditingId(s.id);
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    if (!name || questions.length === 0) {
+      alert('Ma\'lumotlarni to\'liq kiriting!');
+      return;
+    }
+
+    const subjectData: Subject = {
+      id: editingId || Math.random().toString(36).substr(2, 9),
+      name,
+      questions,
+      questionsPerVariant,
+      durationMinutes: duration,
+      startTime: startDateTime || new Date().toISOString(),
+      endTime: endDateTime || new Date(Date.now() + 86400000).toISOString(),
+      isActive: true
+    };
+
+    if (editingId) {
+      setSubjects(prev => prev.map(s => s.id === editingId ? subjectData : s));
+    } else {
+      setSubjects(prev => [...prev, subjectData]);
+    }
+    resetForm();
+  };
+
+  const deleteSubject = (id: string) => {
+    if(confirm('Ushbu fanni va barcha bog\'liq testlarni o\'chirmoqchimisiz?')) {
+      setSubjects(prev => prev.filter(s => s.id !== id));
+    }
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Dashboard</h2>
+        <button 
+          onClick={onViewReports}
+          className="bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-xs font-black shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition uppercase tracking-widest"
+        >
+          Hisobotlar
+        </button>
+      </div>
+
+      {!showForm ? (
+        <div className="space-y-4">
+          <button 
+            onClick={() => setShowForm(true)}
+            className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black flex items-center justify-center gap-3 shadow-2xl hover:bg-black transition-all"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+            YANGI FAN QO'SHISH
+          </button>
+
+          <div className="grid grid-cols-1 gap-4">
+            <h3 className="font-black text-slate-400 text-[10px] uppercase tracking-[0.2em] ml-2">Faol Imtihonlar</h3>
+            {subjects.length === 0 ? (
+              <div className="bg-white border-2 border-dashed border-slate-100 rounded-[2.5rem] py-16 text-center">
+                <p className="text-slate-300 font-bold italic">Hozircha hech qanday fan mavjud emas</p>
+              </div>
+            ) : (
+              subjects.map(s => (
+                <div key={s.id} className="group bg-white p-6 rounded-[2rem] border border-slate-100 flex justify-between items-center shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-300">
+                  <div className="space-y-1">
+                    <h4 className="font-black text-xl text-slate-800 leading-tight">{s.name}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-slate-100">Savollar: {s.questions.length}</span>
+                      <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-indigo-100">Variant hajmi: {s.questionsPerVariant}</span>
+                      <span className="bg-slate-50 text-slate-500 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-slate-100">{s.durationMinutes} min</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleEdit(s)} className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl hover:bg-indigo-600 hover:text-white transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button onClick={() => deleteSubject(s.id)} className="bg-red-50 text-red-600 p-3 rounded-2xl hover:bg-red-600 hover:text-white transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 space-y-8 animate-in fade-in zoom-in duration-500 shadow-2xl">
+          <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+             <h3 className="text-2xl font-black text-slate-800">{editingId ? 'Fanni tahrirlash' : 'Yangi Test Qo\'shish'}</h3>
+             <button onClick={resetForm} className="text-slate-400 hover:text-slate-600">
+               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+               </svg>
+             </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fan nomi</label>
+                <input 
+                  type="text" 
+                  value={name} 
+                  onChange={e => setName(e.target.value)} 
+                  className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 focus:border-indigo-500 p-4 font-bold transition-all outline-none" 
+                  placeholder="Masalan: Oliy Matematika"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Variant hajmi</label>
+                  <input 
+                    type="number" 
+                    value={questionsPerVariant} 
+                    onChange={e => setQuestionsPerVariant(parseInt(e.target.value))} 
+                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 font-bold outline-none" 
+                  />
+                  <p className="text-[9px] text-slate-400 font-medium px-1">Tasodifiy tanlanadigan savollar soni</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Vaqt (minut)</label>
+                  <input 
+                    type="number" 
+                    value={duration} 
+                    onChange={e => setDuration(parseInt(e.target.value))} 
+                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 font-bold outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-2">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Boshlanish</label>
+                  <input 
+                    type="datetime-local" 
+                    value={startDateTime} 
+                    onChange={e => setStartDateTime(e.target.value)} 
+                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 font-bold outline-none text-sm" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tugash</label>
+                  <input 
+                    type="datetime-local" 
+                    value={endDateTime} 
+                    onChange={e => setEndDateTime(e.target.value)} 
+                    className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 font-bold outline-none text-sm" 
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Savollar bazasi (Excel)</label>
+              <div className="flex-1">
+                 <FileImport 
+                   onImport={(qs) => setQuestions(qs)} 
+                   onBack={() => {}} 
+                   isEmbedded={true} 
+                   hasData={questions.length > 0} 
+                 />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <button 
+              onClick={resetForm}
+              className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition"
+            >
+              Bekor qilish
+            </button>
+            <button 
+              onClick={handleSave}
+              className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all"
+            >
+              SAQLASH
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdminDashboard;
